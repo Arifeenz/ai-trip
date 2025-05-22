@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>ถามเกี่ยวกับเรา</title>
+  <style>
+    #loading {
+      display: none;
+      font-style: italic;
+      color: gray;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-top: 3px solid #333;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>อยากถามอะไรเกี่ยวกับเรา</h2>
+
+  <form id="questionForm">
+    <input
+      type="text"
+      id="question"
+      name="question"
+      placeholder="พิมพ์คำถามของคุณที่นี่"
+      required
+      style="width: 300px; padding: 8px;"
+    />
+    <br><br>
+    <button type="submit">ส่งคำถาม</button>
+  </form>
+
+  <div id="loading"><span class="spinner"></span>กำลังค้นหาข้อมูล...</div>
+
+  <br>
+  <label for="responseBox">📌 คำตอบ:</label><br>
+  <textarea id="responseBox" rows="10" cols="80" readonly></textarea>
+
+  <script>
+    function cleanThaiText(text) {
+      return text
+        .replace(/([ก-ฮ])\s+([่-๋็ัิีึืุูํ])/g, "$1$2") // พยัญชนะ + วรรณยุกต์/สระ
+        .replace(/([่-๋็ัิีึืุูํ])\s+([ก-ฮ])/g, "$1$2") // วรรณยุกต์/สระ + พยัญชนะ
+        .replace(/([ก-ฮ])\s+([ก-ฮ])/g, "$1$2")         // พยัญชนะ + พยัญชนะ
+        .replace(/\s{2,}/g, " ")                        // เว้นวรรคเกิน 1
+        .trim();
+    }
+
+    document.getElementById("questionForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const questionInput = document.getElementById("question");
+      const responseBox = document.getElementById("responseBox");
+      const loading = document.getElementById("loading");
+
+      const question = questionInput.value;
+      const payload = { question };
+
+      responseBox.value = "";
+      loading.style.display = "block";
+      console.log("📤 ส่งคำถามไปยัง Webhook:", payload);
+
+      try {
+        const response = await fetch("https://hook.eu2.make.com/f2mlk48tc85r15zo7b9nx8sv8eur17nl", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        console.log("📥 สถานะ response:", response.status);
+
+        if (!response.ok) {
+          throw new Error(`เกิดข้อผิดพลาด HTTP ${response.status}`);
+        }
+
+        const rawText = await response.text();
+        console.log("📨 ข้อความที่ได้จาก Webhook:\n", rawText);
+
+        let cleanText = rawText.replace(/<metadata>[\s\S]*?<\/metadata>/gi, "").trim();
+        cleanText = cleanThaiText(cleanText);
+
+        responseBox.value = cleanText || "⚠️ ไม่พบข้อมูลที่สามารถแสดงได้";
+      } catch (error) {
+        console.error("❌ เกิดข้อผิดพลาด:", error);
+        responseBox.value = "❌ มีบางอย่างผิดพลาด: " + error.message;
+      } finally {
+        loading.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
